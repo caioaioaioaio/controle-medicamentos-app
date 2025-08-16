@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Controle de Medicamentos</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Custom scrollbar for better aesthetics */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1f2937;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #4b5563;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #6b7280;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white flex items-center justify-center min-h-screen p-4">
+
+    <div id="app-container" class="w-full max-w-2xl mx-auto">
+
+        <div id="welcome-screen" class="bg-gray-800 p-8 rounded-2xl shadow-2xl text-center transition-opacity duration-500">
+            <h1 class="text-3xl font-bold mb-2 text-cyan-400">Bem-vindo(a)!</h1>
+            <p class="text-gray-400 mb-6">Para começar, diga-nos o seu nome.</p>
+            <form id="user-form">
+                <input type="text" id="user-name-input" placeholder="Digite seu nome aqui" class="w-full bg-gray-700 border-2 border-gray-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition duration-300 mb-4" required>
+                <button type="submit" class="w-full bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-3 px-4 rounded-lg transition duration-300 shadow-lg">Salvar e Começar</button>
+            </form>
+        </div>
+
+        <div id="main-app" class="hidden transition-opacity duration-500">
+            <header class="mb-8 flex justify-between items-center">
+                <div>
+                    <h1 class="text-3xl font-bold">💊 Controle de Medicamentos</h1>
+                    <p id="welcome-message" class="text-cyan-400"></p>
+                </div>
+                <button id="reset-button" class="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg text-sm transition duration-300">Trocar Usuário</button>
+            </header>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div class="bg-gray-800 p-6 rounded-2xl shadow-2xl">
+                    <h2 class="text-xl font-semibold mb-4 border-b border-gray-700 pb-2">Adicionar Medicamento</h2>
+                    <form id="med-form" class="space-y-4">
+                        <input type="text" id="med-name" placeholder="Nome do Medicamento" class="w-full bg-gray-700 border-2 border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-cyan-500" required>
+                        <input type="time" id="med-time" class="w-full bg-gray-700 border-2 border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-cyan-500" required>
+                        <button type="submit" class="w-full bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300">Adicionar</button>
+                    </form>
+
+                    <div id="med-list-container" class="mt-6">
+                           <h3 class="text-lg font-semibold mb-3">Seus Medicamentos</h3>
+                           <div id="med-list" class="space-y-2 max-h-60 overflow-y-auto pr-2">
+                                </div>
+                    </div>
+                </div>
+
+                <div class="space-y-8">
+                    <div class="bg-gray-800 p-6 rounded-2xl shadow-2xl">
+                        <h2 class="text-xl font-semibold mb-4 text-cyan-400">Próxima Dose</h2>
+                        <div id="next-dose" class="text-center bg-gray-900 p-6 rounded-lg">
+                               </div>
+                    </div>
+                     <div class="bg-gray-800 p-6 rounded-2xl shadow-2xl">
+                        <h2 class="text-xl font-semibold mb-4">Anotações</h2>
+                        <textarea id="notes" placeholder="Anote aqui informações importantes, como recomendações médicas, etc." class="w-full h-32 bg-gray-700 border-2 border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 resize-none"></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Elementos da UI
+            const welcomeScreen = document.getElementById('welcome-screen');
+            const mainApp = document.getElementById('main-app');
+            const userForm = document.getElementById('user-form');
+            const userNameInput = document.getElementById('user-name-input');
+            const welcomeMessage = document.getElementById('welcome-message');
+            const resetButton = document.getElementById('reset-button');
+
+            const medForm = document.getElementById('med-form');
+            const medNameInput = document.getElementById('med-name');
+            const medTimeInput = document.getElementById('med-time');
+            const medList = document.getElementById('med-list');
+            const nextDoseEl = document.getElementById('next-dose');
+            const notesTextarea = document.getElementById('notes');
+
+            // Estado da aplicação
+            let state = {
+                userName: '',
+                medications: [],
+                notes: ''
+            };
+
+            // --- FUNÇÕES DE LÓGICA ---
+
+            // Carrega dados do localStorage
+            function loadState() {
+                const savedState = JSON.parse(localStorage.getItem('medControlState'));
+                if (savedState) {
+                    state = savedState;
+                }
+            }
+
+            // Salva dados no localStorage
+            function saveState() {
+                localStorage.setItem('medControlState', JSON.stringify(state));
+            }
+
+            // Renderiza a lista de medicamentos
+            function renderMedList() {
+                medList.innerHTML = '';
+                if (state.medications.length === 0) {
+                    medList.innerHTML = '<p class="text-gray-500 text-sm">Nenhum medicamento cadastrado.</p>';
+                    return;
+                }
+                
+                // Ordena por horário antes de renderizar
+                const sortedMeds = [...state.medications].sort((a, b) => a.time.localeCompare(b.time));
+
+                sortedMeds.forEach((med, index) => {
+                    const medEl = document.createElement('div');
+                    medEl.className = 'bg-gray-700 p-3 rounded-lg flex justify-between items-center';
+                    medEl.innerHTML = `
+                        <div>
+                            <p class="font-semibold">${med.name}</p>
+                            <p class="text-sm text-cyan-400">${med.time}</p>
+                        </div>
+                        <button data-index="${index}" class="delete-btn text-gray-400 hover:text-red-500 transition-colors">&times;</button>
+                    `;
+                    medList.appendChild(medEl);
+                });
+            }
+
+            // Calcula e exibe a próxima dose
+            function calculateNextDose() {
+                if (state.medications.length === 0) {
+                    nextDoseEl.innerHTML = '<p class="text-gray-400">Cadastre um medicamento para ver a próxima dose.</p>';
+                    return;
+                }
+
+                const now = new Date();
+                const currentTime = now.toTimeString().slice(0, 5);
+
+                const sortedMeds = [...state.medications].sort((a, b) => a.time.localeCompare(b.time));
+
+                let nextMed = sortedMeds.find(med => med.time > currentTime);
+
+                // Se não encontrou, o próximo é o primeiro do dia seguinte
+                if (!nextMed) {
+                    nextMed = sortedMeds[0];
+                }
+
+                nextDoseEl.innerHTML = `
+                    <p class="text-4xl font-bold mb-2">${nextMed.time}</p>
+                    <p class="text-lg text-gray-300">${nextMed.name}</p>
+                    ${!nextMed.time > currentTime ? '<p class="text-xs text-yellow-400 mt-1">(Amanhã)</p>' : ''}
+                `;
+            }
+
+            // Atualiza toda a UI com base no estado
+            function updateUI() {
+                if (state.userName) {
+                    welcomeMessage.textContent = `Olá, ${state.userName}!`;
+                    notesTextarea.value = state.notes;
+                    
+                    welcomeScreen.classList.add('hidden');
+                    mainApp.classList.remove('hidden');
+                    
+                    renderMedList();
+                    calculateNextDose();
+                } else {
+                    welcomeScreen.classList.remove('hidden');
+                    mainApp.classList.add('hidden');
+                }
+            }
+            
+            // --- MANIPULADORES DE EVENTOS ---
+
+            // Salvar nome do usuário
+            userForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const userName = userNameInput.value.trim();
+                if (userName) {
+                    state.userName = userName;
+                    saveState();
+                    updateUI();
+                }
+            });
+
+            // Adicionar medicamento
+            medForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const medName = medNameInput.value.trim();
+                const medTime = medTimeInput.value;
+                if (medName && medTime) {
+                    state.medications.push({ name: medName, time: medTime });
+                    saveState();
+                    updateUI();
+                    medForm.reset();
+                }
+            });
+            
+            // Deletar medicamento
+            medList.addEventListener('click', (e) => {
+                if (e.target.classList.contains('delete-btn')) {
+                    const index = parseInt(e.target.dataset.index, 10);
+                    // É preciso re-ordenar para pegar o índice correto
+                    const sortedMeds = [...state.medications].sort((a, b) => a.time.localeCompare(b.time));
+                    const originalIndex = state.medications.findIndex(med => med.name === sortedMeds[index].name && med.time === sortedMeds[index].time);
+                    
+                    if (originalIndex > -1) {
+                        state.medications.splice(originalIndex, 1);
+                        saveState();
+                        updateUI();
+                    }
+                }
+            });
+
+            // Salvar anotações
+            notesTextarea.addEventListener('blur', () => {
+                state.notes = notesTextarea.value;
+                saveState();
+            });
+            
+            // Resetar/Trocar usuário
+            resetButton.addEventListener('click', () => {
+                if (confirm('Você tem certeza que quer trocar de usuário? Os dados atuais serão apagados.')) {
+                    localStorage.removeItem('medControlState');
+                    // Reseta o estado para o padrão
+                    state = { userName: '', medications: [], notes: '' };
+                    userNameInput.value = '';
+                    updateUI();
+                }
+            });
+
+            // --- INICIALIZAÇÃO ---
+            function init() {
+                loadState();
+                updateUI();
+                // Atualiza o relógio da próxima dose a cada minuto
+                setInterval(calculateNextDose, 60000);
+            }
+            
+            init();
+        });
+    </script>
+</body>
+</html>
